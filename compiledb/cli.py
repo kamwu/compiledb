@@ -35,7 +35,7 @@ class Options(object):
     shared by all compiledb subcommands"""
 
     def __init__(self, infile, outfile, build_dir, exclude_files, no_build,
-                 verbose, overwrite, strict):
+                 verbose, overwrite, strict, absolute_paths):
         self.infile = infile
         self.outfile = outfile
         self.build_dir = build_dir
@@ -44,6 +44,7 @@ class Options(object):
         self.no_build = no_build
         self.overwrite = overwrite
         self.strict = strict
+        self.absolute_paths = absolute_paths
 
 
 @click.group(context_settings=CONTEXT_SETTINGS, invoke_without_command=True)
@@ -51,7 +52,7 @@ class Options(object):
               help='Build log file to parse compilation commands from.' +
               '(Default: stdin)', required=False, default=sys.stdin)
 @click.option('-o', '--output', 'outfile', type=click.File('w'),
-              help="Output file path (Default: std output)",
+              help="Output file path (Default: compile_commands.json)",
               required=False, default='compile_commands.json')
 @click.option('-d', '--build-dir', 'build_dir', type=click.Path(),
               help="Path to be used as initial build dir", default=os.getcwd())
@@ -65,17 +66,19 @@ class Options(object):
               help='Overwrite compile_commands.json intead of just updating it.')
 @click.option('-S', '--no-strict', is_flag=True, default=False,
               help='Do not check if source files exist in the file system.')
+@click.option('-A', '--absolute-paths', is_flag=True, default=False,
+              help='Generate database with absolute paths.')
 @click.pass_context
-def cli(ctx, infile, outfile, build_dir, exclude_files, no_build, verbose, overwrite, no_strict):
+def cli(ctx, infile, outfile, build_dir, exclude_files, no_build, verbose, overwrite, no_strict, absolute_paths):
     """Clang's Compilation Database generator for make-based build systems.
        When no subcommand is used it will parse build log/commands and generates
        its corresponding Compilation database."""
     if ctx.invoked_subcommand is None:
-        done = generate(infile, outfile, build_dir, exclude_files, verbose, overwrite, not no_strict)
+        done = generate(infile, outfile, build_dir, exclude_files, verbose, overwrite, not no_strict, absolute_paths)
         exit(0 if done else 1)
     else:
         ctx.obj = Options(infile, outfile, build_dir, exclude_files,
-                          no_build, verbose, overwrite, not no_strict)
+                          no_build, verbose, overwrite, not no_strict, absolute_paths)
 
 
 # Add subcommands

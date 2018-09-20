@@ -18,6 +18,7 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+import os
 import bashlex
 import re
 import subprocess
@@ -31,8 +32,8 @@ file_regex = re.compile("^.+\.c$|^.+\.cc$|^.+\.cpp$|^.+\.cxx$")
 compiler_wrappers = {"ccache", "icecc", "sccache"}
 
 # Leverage `make --print-directory` option
-make_enter_dir = re.compile("^\s*make\[\d+\]: Entering directory [`\'\"](?P<dir>.*)[`\'\"]\s*$")
-make_leave_dir = re.compile("^\s*make\[\d+\]: Leaving directory .*$")
+make_enter_dir = re.compile("^\s*make(\[\d+\])*: Entering directory [`\'\"](?P<dir>.*)[`\'\"]\s*$")
+make_leave_dir = re.compile("^\s*make(\[\d+\])*: Leaving directory .*$")
 
 
 class ParsingResult(object):
@@ -54,7 +55,7 @@ class Error(Exception):
         return "Error: {}".format(self.msg)
 
 
-def parse_build_log(build_log, proj_dir, exclude_files, verbose, extra_wrappers=[]):
+def parse_build_log(build_log, proj_dir, exclude_files, verbose, absolute_paths, extra_wrappers=[]):
     result = ParsingResult()
 
     def skip_line(cmd, reason):
@@ -92,10 +93,14 @@ def parse_build_log(build_log, proj_dir, exclude_files, verbose, extra_wrappers=
         if (make_enter_dir.match(line)):
             working_dir = enter_dir.group('dir')
             dir_stack.append(working_dir)
+            if verbose:
+                print("[INFO] Changing working directory to: {}".format(working_dir))
             continue
         if (make_leave_dir.match(line)):
             dir_stack.pop()
             working_dir = dir_stack[-1]
+            if verbose:
+                print("[INFO] Switching back to working directory to: {}".format(working_dir))
             continue
 
         commands = []
@@ -132,14 +137,16 @@ def parse_build_log(build_log, proj_dir, exclude_files, verbose, extra_wrappers=
             tokens = c['tokens']
             arguments = [unescape(a) for a in tokens[len(wrappers):]]
 
-            if (verbose):
-                print("Adding command {}: {}".format(len(result.compdb), " ".join(arguments)))
-
-            result.compdb.append({
+            compdb_entry = {
                 'directory': working_dir,
                 'arguments': arguments,
-                'file': filepath,
-            })
+                'file': filepath if not absolute_paths else os.path.join(working_dir, filepath),
+            }
+
+            result.compdb.append(compdb_entry)
+
+            if (verbose):
+                print("Adding command {}: {}\n\t{}".format(len(result.compdb), " ".join(arguments), compdb_entry))
 
     return result
 
