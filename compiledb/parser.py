@@ -135,18 +135,16 @@ def parse_build_log(build_log, proj_dir, exclude_files, verbose, absolute_paths,
 
             # add entry to database
             tokens = c['tokens']
-            arguments = [unescape(a) for a in tokens[len(wrappers):]]
-
-            compdb_entry = {
-                'directory': working_dir,
-                'arguments': arguments,
-                'file': filepath if not absolute_paths else os.path.join(working_dir, filepath),
-            }
-
-            result.compdb.append(compdb_entry)
+            compilation_cmd = ' '.join(tokens[len(wrappers):])
 
             if (verbose):
-                print("Adding command {}: {}\n\t{}".format(len(result.compdb), " ".join(arguments), compdb_entry))
+                print("Adding command {}: {}".format(len(result.compdb), compilation_cmd))
+
+            result.compdb.append({
+                'directory': working_dir,
+                'command': unescape(compilation_cmd),
+                'file': filepath if not absolute_paths else os.path.join(working_dir, filepath),
+            })
 
     return result
 
