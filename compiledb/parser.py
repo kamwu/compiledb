@@ -63,6 +63,21 @@ def parse_build_log(build_log, proj_dir, exclude_files, verbose, absolute_paths,
             print("[INFO] Line {}: {}. Ignoring: '{}'".format(lineno, reason, cmd))
         result.skipped += 1
 
+    def is_source(filename):
+        accepted = {
+            '.c', '.cc', '.cp', '.cpp', '.cxx', '.c++', '.m', '.mm', '.i', '.ii', '.mii'
+        }
+        __, ext = os.path.splitext(filename)
+        return ext.lower() in accepted
+
+    def abs_inc(curdir, arg):
+        match = re.match(r'^(-I)(.+)', arg)
+        if match:
+            arg = match.group(1) + os.path.normpath(os.path.join(curdir, match.group(2)))
+        if re.match(r'^[^-].+', arg) and is_source(arg):
+            arg = os.path.normpath(os.path.join(curdir, arg))
+        return arg
+
     exclude_files_regex = None
     if len(exclude_files) > 0:
         try:
@@ -135,7 +150,7 @@ def parse_build_log(build_log, proj_dir, exclude_files, verbose, absolute_paths,
 
             # add entry to database
             tokens = c['tokens']
-            compilation_cmd = ' '.join(tokens[len(wrappers):])
+            compilation_cmd = ' '.join([abs_inc(working_dir, a) for a in tokens[len(wrappers):]])
 
             if (verbose):
                 print("Adding command {}: {}".format(len(result.compdb), compilation_cmd))
